@@ -127,3 +127,21 @@ salinity_aov_final <- aov(chl_a_final ~ Salinity_final, data = data_final_df)
 summary(salinity_aov)
 TukeyHSD(salinity_aov)
 ```
+
+```{r LM, include=FALSE}
+# Exclude "Initial" from the data
+no_initial <- data_df %>% filter(Bottle != "Initial")
+# Perform linear regression with chl_a as the response variable and Bottle as the predictor
+linear_model <- lm(chl_a ~ Bottle, data = no_initial)
+
+# Summary of the linear model
+summary(linear_model)
+```
+
+
+```{r anova, include=FALSE}
+no_initial <- data_df %>% filter(Bottle != "Initial")
+salinity_aov_new <- aov(chl_a ~ Bottle, data = no_initial)
+summary(salinity_aov_new)
+TukeyHSD(salinity_aov_new)
+```
