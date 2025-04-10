@@ -1,0 +1,30 @@
+---
+title: "Chl_Lab"
+output: html_document
+date: "2025-04-10"
+---
+
+```{r load packages, include=FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+```{r setup, include=FALSE}
+data <- read.csv("chlorophyll_data.csv")
+```
+
+```{r make a datafram, include=FALSE}
+data_df <- as.data.frame(data)
+```
+
+```{r make bar chart, include=FALSE}
+Beaker <- as.factor(data_df$Bottle)
+Salinity <- as.factor(data_df$Salinity)
+Average_chl <- as.numeric(data_df$Average)
+```
+
+```{r make bar chart, include=FALSE}
+salinity_aov <- aov(Average_chl ~ Beaker, data = data_df)
+summary(salinity_aov)
+TukeyHSD(salinity_aov)
+```
