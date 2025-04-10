@@ -17,14 +17,113 @@ data <- read.csv("chlorophyll_data.csv")
 data_df <- as.data.frame(data)
 ```
 
-```{r make bar chart, include=FALSE}
+```{r factors, include=FALSE}
 Beaker <- as.factor(data_df$Bottle)
 Salinity <- as.factor(data_df$Salinity)
 Average_chl <- as.numeric(data_df$Average)
+chl_a <- as.numeric(data_df$chl_a)
 ```
 
-```{r make bar chart, include=FALSE}
+```{r anova, include=FALSE}
 salinity_aov <- aov(Average_chl ~ Beaker, data = data_df)
+summary(salinity_aov)
+TukeyHSD(salinity_aov)
+```
+
+```{r anova 2, include=FALSE}
+salinity_aov_all <- aov(chl_a ~ Beaker, data = data_df)
+```
+
+```{r bar chart, include=FALSE}
+# Ensure "Initial" is present and reorder factor levels to include it correctly
+data_df_summary <- data_df %>%
+  # Ensure "Initial" is included in the factor levels and retain it in the data
+  mutate(Bottle = factor(Bottle, levels = c("Low", "Control", "High", "Highest", "Initial"))) %>%
+  group_by(Bottle) %>%
+  summarise(
+    Average = mean(chl_a, na.rm = TRUE),  # Calculate mean of Average for each Beaker
+    SD = sd(chl_a, na.rm = TRUE)  # Calculate standard deviation of Average for each Beaker
+  )
+
+# Check that "Initial" is included
+print(data_df_summary)
+
+# Create a bar chart with error bars for standard deviation
+p <- ggplot(data_df_summary, aes(x = Bottle, y = Average, fill = Bottle)) +
+  geom_col() +  # Bar chart for the average
+  geom_errorbar(
+    aes(ymin = Average - SD, ymax = Average + SD),  # Error bars from Average ± SD
+    width = 0.2  # Width of the error bars
+  ) +
+  labs(
+    title = NULL,
+    x = "Salinity Treatment (ppt)",
+    y = "Average Chlorophyll a (µg/L)"
+  ) +
+  scale_fill_discrete(  # Use default ggplot2 color palette for the factor levels
+    labels = c(
+      "Low" = "20 ppt", 
+      "Control" = "40 ppt", 
+      "High" = "60 ppt", 
+      "Highest" = "80 ppt", 
+      "Initial" = "40 ppt"
+    )
+  ) +
+  guides(
+    fill = guide_legend(title = "Salinity Treatments")  # Change legend title
+  ) +
+  theme_minimal()  # Use the default minimal theme
+
+# Print the plot
+print(p)
+```
+
+
+```{r box plot, include=FALSE}
+q <- ggplot(data_df, aes(x = Beaker, y = chl_a, fill = Beaker)) + 
+  geom_boxplot(width = 0.6) +  # Increase the width of the boxes
+  labs(title = "Box and Whiskers Plot by Beaker", x = "Beaker", y = "chl_a") + 
+  theme_minimal()
+print(q)
+```
+
+```{r box plot, include=FALSE}
+
+# Check the unique levels of Beaker after filtering
+unique(data_df$Bottle)
+
+# Filter out 'Initial' and reorder the factor levels
+data_df <- data_df %>%
+  filter(Bottle != "Initial") %>%  # Remove 'Initial' category
+  mutate(Bottle = factor(Bottle, levels = c("Low", "Control", "High", "Highest")))  # Reorder factor levels
+Beaker <- data_df$Bottle
+# Create a boxplot with the updated data
+h <- ggplot(data_df, aes(x = Beaker, y = chl_a, fill = Beaker)) + 
+  geom_boxplot(width = 0.6) +  # Adjust width for better appearance
+  labs(title = NULL, x = "Salinity Treatment", y = "Average Chlorophyll (µg/L)") + 
+  theme_minimal()
+
+# Display the plot
+print(h)
+```
+
+```{r setup NO INITIAL, include=FALSE}
+data_final <- read.csv("chlorophyll_data_no_initial.csv")
+```
+
+```{r make a datafram, include=FALSE}
+data_final_df <- as.data.frame(data_final)
+```
+
+```{r factors, include=FALSE}
+Beaker_final <- as.factor(data_final_df$Bottle)
+Salinity_final <- as.factor(data_final_df$Salinity)
+Average_chl_final <- as.numeric(data_final_df$Average)
+chl_a_final <- as.numeric(data_final_df$chl_a)
+```
+
+```{r anova, include=FALSE}
+salinity_aov_final <- aov(chl_a_final ~ Salinity_final, data = data_final_df)
 summary(salinity_aov)
 TukeyHSD(salinity_aov)
 ```
