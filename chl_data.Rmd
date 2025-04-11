@@ -4,9 +4,18 @@ output: html_document
 date: "2025-04-10"
 ---
 
+```{r install packages, include=FALSE}
+install.packages("broom")
+install.packages("knitr")
+install.packages("flextable")
+install.packages("kableExtra")
+```
+
 ```{r load packages, include=FALSE}
 library(ggplot2)
 library(dplyr)
+library(knitr)
+library(flextable)
 ```
 
 ```{r setup, include=FALSE}
@@ -22,16 +31,6 @@ Beaker <- as.factor(data_df$Bottle)
 Salinity <- as.factor(data_df$Salinity)
 Average_chl <- as.numeric(data_df$Average)
 chl_a <- as.numeric(data_df$chl_a)
-```
-
-```{r anova, include=FALSE}
-salinity_aov <- aov(Average_chl ~ Beaker, data = data_df)
-summary(salinity_aov)
-TukeyHSD(salinity_aov)
-```
-
-```{r anova 2, include=FALSE}
-salinity_aov_all <- aov(chl_a ~ Beaker, data = data_df)
 ```
 
 ```{r bar chart, include=FALSE}
@@ -72,7 +71,13 @@ p <- ggplot(data_df_summary, aes(x = Bottle, y = Average, fill = Bottle)) +
   guides(
     fill = guide_legend(title = "Salinity Treatments")  # Change legend title
   ) +
-  theme_minimal()  # Use the default minimal theme
+  theme_minimal() +  # Apply minimal theme
+  theme(
+    axis.title = element_text(size = 14),  # Change font size for axis titles
+    axis.text = element_text(size = 12),   # Change font size for axis tick labels
+    legend.title = element_text(size = 14),  # Change font size for legend title
+    legend.text = element_text(size = 12)   # Change font size for legend text
+  )  # Use the default minimal theme
 
 # Print the plot
 print(p)
@@ -98,34 +103,34 @@ data_df <- data_df %>%
   mutate(Bottle = factor(Bottle, levels = c("Low", "Control", "High", "Highest")))  # Reorder factor levels
 Beaker <- data_df$Bottle
 # Create a boxplot with the updated data
-h <- ggplot(data_df, aes(x = Beaker, y = chl_a, fill = Beaker)) + 
+h <- ggplot(data_df, aes(x = Bottle, y = chl_a, fill = Bottle)) + 
   geom_boxplot(width = 0.6) +  # Adjust width for better appearance
-  labs(title = NULL, x = "Salinity Treatment", y = "Average Chlorophyll (µg/L)") + 
-  theme_minimal()
+  scale_fill_discrete(  # Use default ggplot2 color palette for the factor levels
+    labels = c(
+      "Low" = "20 ppt", 
+      "Control" = "40 ppt", 
+      "High" = "60 ppt", 
+      "Highest" = "80 ppt"  # "Initial" has already been removed from the data
+    )
+  ) +
+  guides(
+    fill = guide_legend(title = "Salinity Treatments")  # Change legend title
+  ) +
+  labs(  # Add axis labels
+    title = NULL,
+    x = "Salinity Treatment (ppt)",
+    y = "Average Chlorophyll a (µg/L)"
+  ) +
+  theme_minimal() +  # Apply minimal theme
+  theme(
+    axis.title = element_text(size = 14),  # Change font size for axis titles
+    axis.text = element_text(size = 12),   # Change font size for axis tick labels
+    legend.title = element_text(size = 14),  # Change font size for legend title
+    legend.text = element_text(size = 12)   # Change font size for legend text
+  )  # Use the default minimal theme
 
 # Display the plot
 print(h)
-```
-
-```{r setup NO INITIAL, include=FALSE}
-data_final <- read.csv("chlorophyll_data_no_initial.csv")
-```
-
-```{r make a datafram, include=FALSE}
-data_final_df <- as.data.frame(data_final)
-```
-
-```{r factors, include=FALSE}
-Beaker_final <- as.factor(data_final_df$Bottle)
-Salinity_final <- as.factor(data_final_df$Salinity)
-Average_chl_final <- as.numeric(data_final_df$Average)
-chl_a_final <- as.numeric(data_final_df$chl_a)
-```
-
-```{r anova, include=FALSE}
-salinity_aov_final <- aov(chl_a_final ~ Salinity_final, data = data_final_df)
-summary(salinity_aov)
-TukeyHSD(salinity_aov)
 ```
 
 ```{r LM, include=FALSE}
@@ -138,6 +143,75 @@ linear_model <- lm(chl_a ~ Bottle, data = no_initial)
 summary(linear_model)
 ```
 
+```{r linear model?, include=FALSE}
+# Convert 'Bottle' to a factor if it is not already
+data_df$Bottle <- factor(data_df$Bottle)
+
+# Remove unused levels (if any) from 'Bottle' after filtering
+data_df$Bottle <- droplevels(data_df$Bottle)
+
+# Check the levels of 'Bottle' to confirm
+print(levels(data_df$Bottle))
+
+# Check for NA values in the 'chl_a' column for "Initial"
+initial_data <- data_df %>% filter(Bottle == "Initial")
+
+# Check if there are any NAs or non-numeric values in 'chl_a'
+summary(initial_data$chl_a)  # This will give us an overview of missing values and types
+
+# Also check the first few rows to inspect the data
+head(initial_data)
+
+# Check if 'chl_a' is actually numeric
+is.numeric(initial_data$chl_a)
+
+# Step 1: Calculate the average 'chl_a' for the "Initial" Bottle
+initial_avg <- data_df %>%
+  filter(Bottle == "Initial") %>%
+  summarise(initial_chl_a = mean(chl_a, na.rm = TRUE)) %>%
+  pull(initial_chl_a)
+
+# Check if initial_avg is calculated correctly
+if (is.na(initial_avg) || is.nan(initial_avg)) {
+  stop("The 'Initial' Bottle has no valid chl_a values.")
+}
+
+# Step 2: Exclude 'Initial' from the data and perform linear regression on the remaining categories
+no_initial <- data_df %>%
+  filter(Bottle != "Initial")
+
+# Perform linear regression on chl_a with Bottle as a factor variable
+linear_model <- lm(chl_a ~ Bottle, data = no_initial)
+
+# Step 3: Get the model coefficients (intercept and slopes)
+model_coefficients <- coef(linear_model)
+
+# Step 4: Calculate the predicted values for each Bottle category
+predictions <- data.frame(
+  Bottle = names(model_coefficients)[-1],  # Exclude the intercept for Bottle categories
+  predicted_chl_a = model_coefficients[1] + model_coefficients[-1]  # Predicted values based on the intercept + slope
+)
+
+# Calculate the difference from the initial_avg for each Bottle category
+predictions$diff_from_initial = predictions$predicted_chl_a - initial_avg
+
+# Step 5: Plot the lines based on the predictions
+ggplot(predictions, aes(x = diff_from_initial, y = Bottle, group = Bottle, color = Bottle)) +
+  geom_line(aes(group = Bottle), linewidth = 1) +  # Line thickness for each Bottle category
+  geom_point(aes(x = 0, y = Bottle), color = "black") +  # Mark the origin at initial_avg for each Bottle category
+  labs(title = "chl_a Measurements Relative to 'Initial' Using Linear Model Slope",
+       x = "Difference from Initial (µg/L)",
+       y = "Bottle Category") +
+  theme_minimal() +
+  theme(
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12)
+  ) +
+  scale_color_manual(values = c("blue", "red", "green", "purple"))  # Custom color for each Bottle category
+
+```
 
 ```{r anova, include=FALSE}
 no_initial <- data_df %>% filter(Bottle != "Initial")
@@ -145,3 +219,44 @@ salinity_aov_new <- aov(chl_a ~ Bottle, data = no_initial)
 summary(salinity_aov_new)
 TukeyHSD(salinity_aov_new)
 ```
+
+```{r TABLES!, include=FALSE}
+library("broom")
+c <- kable(tidy(salinity_aov_new), digits = 3, caption = "ANOVA Table for chl_a by Bottle")
+print (c)
+```
+
+```{r TABLES!, include=FALSE}
+library(dplyr)
+library(broom)
+library(kableExtra)
+
+# Check unique values in the 'contrast' column of the tidy Tukey object
+tukey_clean <- tidy(TukeyHSD(salinity_aov_new))
+
+# View unique values in the 'contrast' column
+str(tukey_clean)
+# Now let's inspect the data again to ensure "null.value" is gone
+head(tukey_clean)  # Check the first few rows
+
+# Rename columns for better readability
+tukey_clean <- tukey_clean %>%
+  rename(
+    Comparison = contrast,
+    Difference = estimate,
+    `Lower CI` = conf.low,
+    `Upper CI` = conf.high,
+    `Adjusted p-value` = adj.p.value
+  )
+
+# Create the styled table using kableExtra
+tukey_clean %>%
+  kable(format = "html", caption = "Tukey HSD Pairwise Comparisons") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = F,
+    position = "center"
+  ) %>%
+  column_spec(1, bold = TRUE)  # Optionally make the first column bold
+```
+
